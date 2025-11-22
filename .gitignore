@@ -1,0 +1,63 @@
+# Root
+.DS_Store
+Thumbs.db
+*.log
+*.tmp
+*.swp
+*.swo
+
+# Python / backend
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.coverage
+.venv/
+venv/
+env/
+
+# Local environment & secrets
+.env
+*.env.local
+*.env.*.local
+backend/.env
+backend/.env.local
+
+# SQLite databases & local state
+backend/legal_eagle.db
+*.db
+*.db-journal
+
+# Uploaded files
+backend/uploads/
+
+# Vector stores / embeddings
+data/
+
+# Notebooks & experimentation artifacts
+notebooks/
+cluely.html
+
+# Node / frontend
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/.turbo/
+frontend/.vercel/
+
+# Frontend build artifacts
+frontend/tsconfig.tsbuildinfo
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+
+# OS / editor
+*.orig
+*.bak
+.idea/
+.vscode/
+legaleagle/
+legaleagle/*
+legaleagle/*/*
+notebooks/

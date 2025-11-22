@@ -1,52 +1,51 @@
-from langchain_community.document_loaders import PyPDFLoader,PyMuPDFLoader,DirectoryLoader 
-from langchain_community.document_loaders import Docx2txtLoader, UnstructuredWordDocumentLoader
+from langchain_community.document_loaders import (
+    PyPDFLoader,
+    PyMuPDFLoader,
+    UnstructuredWordDocumentLoader,
+    TextLoader,
+)
 
-from langchain_community.document_loaders import TextLoader
+import os
 
-import tempfile
 
 class LoadDocuments:
-    def __init__(self, uploaded_files):
-        self.uploaded_files = uploaded_files
+    def __init__(self, uploaded_file: str, uploads_dir: str = "uploads"):
+        """
+        uploaded_file is the storage filename (as saved on disk).
+        """
+        self.uploads_dir = uploads_dir
+        self.uploaded_file = uploaded_file
+
+    def _resolve_path(self) -> str:
+        if os.path.isabs(self.uploaded_file):
+            return self.uploaded_file
+        return os.path.join(self.uploads_dir, self.uploaded_file)
 
     def load_document(self):
-        """Loads and splits the document into pages."""
-        data_path = 'uploads'
-        '''         
-        try:
-               
-            if self.uploaded_files is not None:
-                file  = self.uploaded_files 
-                documents=None            
-                print(file.name)   
-                with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
-                    tmp_file.write(file.read())
-                    filename = file.name
-                    if filename.endswith('.pdf'):
-                        print(filename)
-                        
-                        loader = PyPDFLoader(tmp_file.name)
-                        documents=loader.load()
-                        
-                        loader = PyMuPDFLoader(tmp_file.name)
-                        documents=loader.load_and_split()
-                    elif filename.endswith('.docx') or filename.endswith('.doc'):
-                        loader = UnstructuredWordDocumentLoader(tmp_file.name)
-                        documents=loader.load()
-                    elif filename.endswith('.txt'):
-                        loader = TextLoader(tmp_file.name)
-                        documents.extend(loader.load())
-                    
-                    print("Documents loaded successfully!")
-                
-                return documents
-            
-            return None
-        '''
-        try:
-             loader = DirectoryLoader(data_path, glob="./*.pdf")
-             documents = loader.load()
-             return documents
-        except Exception as e:
-             return f'An error occurred {e}',400
+        """Load a single uploaded document into LangChain Document objects."""
+        file_path = self._resolve_path()
+
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f"Uploaded file not found: {file_path}")
+
+        ext = os.path.splitext(file_path)[1].lower()
+
+        if ext == ".pdf":
+            # Try PyPDF first, fall back to PyMuPDF for complex PDFs
+            try:
+                loader = PyPDFLoader(file_path)
+                return loader.load()
+            except Exception:
+                loader = PyMuPDFLoader(file_path)
+                return loader.load()
+
+        if ext in {".doc", ".docx"}:
+            loader = UnstructuredWordDocumentLoader(file_path)
+            return loader.load()
+
+        if ext == ".txt":
+            loader = TextLoader(file_path)
+            return loader.load()
+
+        raise ValueError(f"Unsupported file type for RAG pipeline: {ext}")
         

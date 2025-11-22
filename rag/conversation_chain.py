@@ -1,36 +1,49 @@
-from langchain.prompts import ChatPromptTemplate, SystemMessagePromptTemplate, HumanMessagePromptTemplate
-from langchain.memory import ConversationBufferMemory
-from langchain.chains import ConversationalRetrievalChain
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.runnables import RunnableLambda
+
 
 class ConversationChain:
     def create_retrieval_qa_chain(self, chat_model, retriever):
-        """Creates a retrieval QA chain combining model and database."""
-        system_template = """You are a legal expert tasked with acting as the best lawyer and contract analyzer. Your task is to thoroughly understand the provided context and answer questions related to legal matters, contracts, and relevant laws. If the necessary information is not present in the context use the given context, then get related contexts and answer the question. If the question cannot be answered, respond with "I don't know.".
-        If the question can be answered as either yes or no, respond with either "Yes," or "No," and include the explanation in your response. In addition, please include the referenced sections in your response.
-        
-        You must provide accurate responses based solely on the information provided in the context only. Please use the following context only:
+        """
+        Creates a lightweight retrieval QA chain.
 
-        ### CONTEXT
-        {context}
-
-        ### QUESTION
-        Question: {question}
+        This avoids version-specific helpers like `create_retrieval_chain`
+        and instead wires retrieval + prompting manually, returning a
+        Runnable-compatible object that yields both the answer and the
+        underlying context documents.
         """
 
-        user_template = "Question:```{question}```"
-        messages = [
-            SystemMessagePromptTemplate.from_template(system_template),
-            HumanMessagePromptTemplate.from_template(user_template)
-        ]
-        qa_prompt = ChatPromptTemplate.from_messages(messages)
+        system_prompt = """You are a legal expert and contract analyzer.
+Use the following context to answer the user's question thoroughly and accurately.
 
-        llm = chat_model
-        memory = ConversationBufferMemory(memory_key='chat_history', return_messages=True)
-        conversation_chain = ConversationalRetrievalChain.from_llm(
-            llm=llm,
-            retriever=retriever,
-            chain_type='stuff',
-            memory=memory,
-            combine_docs_chain_kwargs={"prompt": qa_prompt}
+If you cannot find the answer in the context, say "I don't know based on the provided document."
+
+Context:
+{context}"""
+
+        prompt = ChatPromptTemplate.from_messages(
+            [
+                ("system", system_prompt),
+                ("human", "{input}"),
+            ]
         )
-        return conversation_chain
+
+        def _invoke(inputs: dict):
+            question = (inputs.get("input") or "").strip()
+            if not question:
+                return {"answer": "", "context": []}
+
+            # Retrieve relevant chunks
+            docs = retriever.get_relevant_documents(question) if retriever else []
+            context_text = "\n\n".join(d.page_content for d in docs if getattr(d, "page_content", None))
+
+            # Build messages via the prompt template
+            messages = prompt.format_messages(context=context_text, input=question)
+
+            # Call the underlying chat model
+            result = chat_model.invoke(messages)
+            answer = getattr(result, "content", None) or str(result)
+
+            return {"answer": answer, "context": docs}
+
+        return RunnableLambda(_invoke)

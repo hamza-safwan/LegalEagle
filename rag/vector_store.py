@@ -1,4 +1,4 @@
-from langchain.vectorstores.chroma import Chroma
+from langchain_community.vectorstores import Chroma
 
 
 class VectorStore:
